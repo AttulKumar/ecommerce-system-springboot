@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+    <h2>Login</h2>
+
+    <input type="email" id="email" placeholder="Enter Email">
+    <input type="password" id="password" placeholder="Enter Password">
+
+    <button onclick="loginUser()">Login</button>
+
+    <p>New user? <a href="register.html">Register</a></p>
+    <p><a href="index.html">Back to Home</a></p>
+</div>
+
+<script>
+function loginUser() {
+
+    const loginData = {
+        email: document.getElementById("email").value,
+        password: document.getElementById("password").value
+    };
+
+    fetch("http://localhost:8080/auth/login", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(loginData)
+    })
+    .then(response => response.json())
+    .then(user => {
+
+        if(user === null) {
+            alert("Invalid Email or Password");
+            return;
+        }
+
+        localStorage.setItem("userId", user.id);
+        localStorage.setItem("userName", user.name);
+        localStorage.setItem("userRole", user.role);
+
+        if(user.role === "admin") {
+            window.location.href = "admin.html";
+        }
+        else {
+            window.location.href = "customer.html";
+        }
+    })
+    .catch(error => {
+        alert("Login Failed");
+        console.error(error);
+    });
+}
+</script>
+
+</body>
+</html>

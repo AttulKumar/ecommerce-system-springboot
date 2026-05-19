@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container dashboard-container">
+    <h2>Admin Dashboard</h2>
+
+    <p id="welcomeText"></p>
+
+    <button onclick="viewProducts()">View Products</button>
+    <button class="danger-btn" onclick="logout()">Logout</button>
+
+    <hr>
+
+    <h3>Add Product</h3>
+
+    <input type="text" id="productName" placeholder="Product Name">
+    <input type="text" id="productCategory" placeholder="Category">
+    <input type="number" id="productPrice" placeholder="Price">
+    <input type="number" id="productStock" placeholder="Stock">
+
+    <button class="success-btn" onclick="addProduct()">Add Product</button>
+
+    <hr>
+
+    <h3>Products</h3>
+
+<input type="text" id="adminSearchKeyword" placeholder="Search product by name">
+<button onclick="searchProducts()">Search</button>
+<button onclick="viewProducts()">Show All Products</button>
+
+<div id="products" class="grid"></div>
+</div>
+
+<script>
+const userId = localStorage.getItem("userId");
+const userName = localStorage.getItem("userName");
+const userRole = localStorage.getItem("userRole");
+
+if(userId === null) {
+    alert("Please login first");
+    window.location.href = "login.html";
+}
+
+if(userRole !== "admin") {
+    alert("Only admin can access this page");
+    window.location.href = "login.html";
+}
+
+document.getElementById("welcomeText").innerText =
+    "Welcome, " + userName + " (" + userRole + ")";
+
+function viewProducts() {
+    fetch("http://localhost:8080/products")
+        .then(response => response.json())
+        .then(products => {
+            let output = "";
+
+            if(products.length === 0) {
+                output = "<p>No products available</p>";
+            }
+
+            products.forEach(product => {
+                output += `
+                    <div class="card">
+                        <p><b>${product.name}</b></p>
+                        <p>Product ID: ${product.id}</p>
+                        <p>Category: ${product.category}</p>
+                        <p>Price: Rs. ${product.price}</p>
+                        <p>Stock: ${product.stock}</p>
+
+                        <input type="text" id="name-${product.id}" value="${product.name}">
+                        <input type="text" id="category-${product.id}" value="${product.category}">
+                        <input type="number" id="price-${product.id}" value="${product.price}">
+                        <input type="number" id="stock-${product.id}" value="${product.stock}">
+
+                        <button onclick="updateProduct(${product.id})">
+                            Update
+                        </button>
+
+                        <button class="danger-btn" onclick="deleteProduct(${product.id})">
+                            Delete
+                        </button>
+                    </div>
+                `;
+            });
+
+            document.getElementById("products").innerHTML = output;
+        })
+        .catch(error => {
+            console.error(error);
+            alert("Failed to load products");
+        });
+}
+
+function searchProducts() {
+    const keyword = document.getElementById("adminSearchKeyword").value;
+
+    if(keyword.trim() === "") {
+        alert("Enter product name to search");
+        return;
+    }
+
+    fetch("http://localhost:8080/products/search?keyword=" + keyword)
+        .then(response => response.json())
+        .then(products => {
+            let output = "";
+
+            if(products.length === 0) {
+                output = "<p>No product found</p>";
+            }
+
+            products.forEach(product => {
+                output += `
+                    <div class="card">
+                        <p><b>${product.name}</b></p>
+                        <p>Product ID: ${product.id}</p>
+                        <p>Category: ${product.category}</p>
+                        <p>Price: Rs. ${product.price}</p>
+                        <p>Stock: ${product.stock}</p>
+
+                        <input type="text" id="name-${product.id}" value="${product.name}">
+                        <input type="text" id="category-${product.id}" value="${product.category}">
+                        <input type="number" id="price-${product.id}" value="${product.price}">
+                        <input type="number" id="stock-${product.id}" value="${product.stock}">
+
+                        <button onclick="updateProduct(${product.id})">
+                            Update
+                        </button>
+
+                        <button class="danger-btn" onclick="deleteProduct(${product.id})">
+                            Delete
+                        </button>
+                    </div>
+                `;
+            });
+
+            document.getElementById("products").innerHTML = output;
+        })
+        .catch(error => {
+            console.error(error);
+            alert("Search failed");
+        });
+}
+
+
+function addProduct() {
+    const product = {
+        name: document.getElementById("productName").value,
+        category: document.getElementById("productCategory").value,
+        price: Number(document.getElementById("productPrice").value),
+        stock: Number(document.getElementById("productStock").value)
+    };
+
+    fetch("http://localhost:8080/products", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(product)
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert("Product added successfully");
+
+        document.getElementById("productName").value = "";
+        document.getElementById("productCategory").value = "";
+        document.getElementById("productPrice").value = "";
+        document.getElementById("productStock").value = "";
+
+        viewProducts();
+    })
+    .catch(error => {
+        console.error(error);
+        alert("Failed to add product");
+    });
+}
+
+function updateProduct(productId) {
+    const updatedProduct = {
+        name: document.getElementById("name-" + productId).value,
+        category: document.getElementById("category-" + productId).value,
+        price: Number(document.getElementById("price-" + productId).value),
+        stock: Number(document.getElementById("stock-" + productId).value)
+    };
+
+    fetch("http://localhost:8080/products/" + productId, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(updatedProduct)
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert("Product updated successfully");
+        viewProducts();
+    })
+    .catch(error => {
+        console.error(error);
+        alert("Failed to update product");
+    });
+}
+
+function deleteProduct(productId) {
+    fetch("http://localhost:8080/products/" + productId, {
+        method: "DELETE"
+    })
+    .then(response => response.text())
+    .then(message => {
+        alert("Product deleted successfully");
+        viewProducts();
+    })
+    .catch(error => {
+        console.error(error);
+        alert("Failed to delete product");
+    });
+}
+
+function logout() {
+    localStorage.clear();
+    window.location.href = "login.html";
+}
+
+viewProducts();
+</script>
+
+</body>
+</html>

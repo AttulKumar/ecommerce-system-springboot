@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Customer Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container" style="width:90%; max-width:1200px; margin:40px auto;">
+    <h2>Customer Dashboard</h2>
+
+    <p id="welcomeText"></p>
+
+<div class="button-row">
+<div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin-top:25px;">
+    <button style="width:180px; padding:10px;" onclick="viewProducts()">View Products</button>
+    <button style="width:180px; padding:10px;" onclick="viewCart()">View Cart</button>
+    <button style="width:180px; padding:10px;" onclick="viewOrders()">View Order History</button>
+    <button style="width:180px; padding:10px; background:#dc2626; color:white;" onclick="logout()">Logout</button>
+</div>
+</div>
+
+    <hr>
+
+    <h3>Products</h3>
+
+<div class="search-row">
+<div style="display:flex; gap:12px; justify-content:center; align-items:center; margin-top:25px; flex-wrap:wrap;">
+    <input 
+        type="text" 
+        id="customerSearchKeyword" 
+        placeholder="Search product by name"
+        style="width:260px; padding:10px; background:#1f2937; color:white; border:1px solid #374151; border-radius:6px;"
+    >
+
+    <button style="width:140px; padding:10px;" onclick="searchProducts()">Search</button>
+
+    <button style="width:180px; padding:10px;" onclick="viewProducts()">Show All Products</button>
+</div>
+</div>
+</div>
+
+    <div id="products" style="width:90%; max-width:1200px; margin:25px auto; display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:18px;"></div>
+
+    <h3>Cart</h3>
+    <div id="cart" style="width:90%; max-width:1200px; margin:25px auto; display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:18px;"></div>
+
+    <h3>Orders / Invoice</h3>
+    <div id="orders" style="width:90%; max-width:1200px; margin:25px auto; display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:18px;"></div>
+</div>
+
+<script>
+const userId = localStorage.getItem("userId");
+const userName = localStorage.getItem("userName");
+const userRole = localStorage.getItem("userRole");
+
+if(userId === null) {
+    alert("Please login first");
+    window.location.href = "login.html";
+}
+
+if(userRole !== "customer") {
+    alert("Only customer can access this page");
+    window.location.href = "login.html";
+}
+
+document.getElementById("welcomeText").innerText =
+    "Welcome, " + userName + " (" + userRole + ")";
+
+function viewProducts() {
+    fetch("http://localhost:8080/products")
+        .then(response => response.json())
+        .then(products => {
+            let output = "";
+
+            if(products.length === 0) {
+                output = "<p>No products available</p>";
+            }
+
+            products.forEach(product => {
+                output += `
+                    <div class="card">
+                        <p><b>${product.name}</b></p>
+                        <p>Category: ${product.category}</p>
+                        <p>Price: ₹${product.price}</p>
+                        <p>Stock: ${product.stock}</p>
+
+                        <input type="number" id="qty-${product.id}" value="1" min="1">
+
+                        <button 
+                        style="width:100%; padding:10px; background:#2563eb; color:white; border:none; border-radius:6px;"
+                        onclick="addToCart(${product.id})">
+                        Add To Cart
+                    </button>
+                    </div>
+                `;
+            });
+
+            document.getElementById("products").innerHTML = output;
+        })
+        .catch(error => {
+            console.error(error);
+            alert("Failed to load products");
+        });
+}
+
+function searchProducts() {
+    const keyword = document.getElementById("customerSearchKeyword").value;
+
+    if(keyword.trim() === "") {
+        alert("Enter product name to search");
+        return;
+    }
+
+    fetch("http://localhost:8080/products/search?keyword=" + keyword)
+        .then(response => response.json())
+        .then(products => {
+            let output = "";
+
+            if(products.length === 0) {
+                output = "<p>No product found</p>";
+            }
+
+            products.forEach(product => {
+                output += `
+                    <div class="card">
+                        <p><b>${product.name}</b></p>
+                        <p>Category: ${product.category}</p>
+                        <p>Price: Rs. ${product.price}</p>
+                        <p>Stock: ${product.stock}</p>
+
+                        <input type="number" id="qty-${product.id}" value="1" min="1">
+
+                        <button 
+                        style="width:100%; padding:10px; background:#2563eb; color:white; border:none; border-radius:6px;"
+                        onclick="addToCart(${product.id})">
+                        Add To Cart
+                    </button>
+                    </div>
+                `;
+            });
+
+            document.getElementById("products").innerHTML = output;
+        })
+        .catch(error => {
+            console.error(error);
+            alert("Search failed");
+        });
+}
+
+function addToCart(productId) {
+
+    const quantityInput =
+        document.getElementById("qty-" + productId);
+
+    const quantity =
+        Number(quantityInput.value);
+
+    if(quantity <= 0) {
+        alert("Quantity must be at least 1");
+        return;
+    }
+
+    const cartItem = {
+        userId: Number(userId),
+        productId: productId,
+        quantity: quantity
+    };
+
+    fetch("http://localhost:8080/cart/add", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(cartItem)
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert("Product added to cart");
+        viewCart();
+    })
+    .catch(error => {
+        console.error(error);
+        alert("Failed to add product to cart");
+    });
+}
+
+function viewCart() {
+    fetch("http://localhost:8080/cart/" + userId)
+        .then(response => response.json())
+        .then(cartItems => {
+            let output = "";
+            let total = 0;
+
+            if(cartItems.length === 0) {
+                output = "<p>Cart is empty</p>";
+                document.getElementById("cart").innerHTML = output;
+                return;
+            }
+
+            cartItems.forEach(item => {
+                output += `
+                    <div class="card">
+                        <p><b>${item.productName}</b></p>
+                        <p>Product ID: ${item.productId}</p>
+                        <p>Price: ₹${item.price}</p>
+                        <p>Quantity: ${item.quantity}</p>
+                        <p>Subtotal: ₹${item.subtotal}</p>
+
+                        <button class="danger-btn" onclick="removeCartItem(${item.cartId})">
+                            Remove
+                        </button>
+                    </div>
+                `;
+
+                total += item.subtotal;
+            });
+
+            output += `
+            <div class="card">
+                <h3>Total: Rs. ${total}</h3>
+                <button class="success-btn" onclick="checkout()">
+                    Checkout
+                </button>
+            </div>
+        `;
+
+            document.getElementById("cart").innerHTML = output;
+        })
+        .catch(error => {
+            console.error(error);
+            alert("Failed to load cart");
+        });
+}
+
+function removeCartItem(cartId) {
+    fetch("http://localhost:8080/cart/item/" + cartId, {
+        method: "DELETE"
+    })
+    .then(response => response.text())
+    .then(message => {
+        alert(message);
+        viewCart();
+    })
+    .catch(error => {
+        console.error(error);
+        alert("Failed to remove item");
+    });
+}
+
+function checkout() {
+    fetch("http://localhost:8080/orders/place/" + userId, {
+        method: "POST"
+    })
+    .then(response => response.json())
+    .then(order => {
+        alert("Order placed successfully. Order ID: " + order.id);
+        viewCart();
+        viewOrders();
+    })
+    .catch(error => {
+        console.error(error);
+        alert("Checkout failed");
+    });
+}
+
+function viewOrders() {
+    fetch("http://localhost:8080/orders/" + userId)
+        .then(response => response.json())
+        .then(orders => {
+            let output = "";
+
+            if(orders.length === 0) {
+                output = "<p>No orders found</p>";
+            }
+
+            orders.forEach(order => {
+                output += `
+                    <div class="card">
+                        <p><b>Order ID:</b> ${order.id}</p>
+                        <p>Total Amount: ₹${order.totalAmount}</p>
+
+                        <button onclick="viewInvoice(${order.id})">
+                            View Invoice
+                        </button>
+                    </div>
+                `;
+            });
+
+            document.getElementById("orders").innerHTML = output;
+        })
+        .catch(error => {
+            console.error(error);
+            alert("Failed to load orders");
+        });
+}
+
+function viewInvoice(orderId) {
+    fetch("http://localhost:8080/orders/invoice/" + orderId)
+        .then(response => response.json())
+        .then(invoice => {
+            let output = `
+                <div class="card">
+                    <h3>Invoice</h3>
+                    <p><b>Order ID:</b> ${invoice.orderId}</p>
+                    <p><b>User ID:</b> ${invoice.userId}</p>
+                </div>
+            `;
+
+            invoice.items.forEach(item => {
+                output += `
+                    <div class="card">
+                        <p><b>${item.productName}</b></p>
+                        <p>Price: ₹${item.price}</p>
+                        <p>Quantity: ${item.quantity}</p>
+                        <p>Subtotal: ₹${item.subtotal}</p>
+                    </div>
+                `;
+            });
+
+            output += `
+                <div class="card">
+                    <h3>Total Amount: ₹${invoice.totalAmount}</h3>
+                    <button onclick="viewOrders()">Back To Orders</button>
+                </div>
+            `;
+
+            document.getElementById("orders").innerHTML = output;
+        })
+        .catch(error => {
+            console.error(error);
+            alert("Failed to load invoice");
+        });
+}
+
+function logout() {
+    localStorage.clear();
+    window.location.href = "login.html";
+}
+</script>
+
+</body>
+</html>
